@@ -13,10 +13,6 @@
         password: '{{ esxi_password }}'
         validate_certs: no
         switch: '{{ student_ID }}'
-        security:
-          promiscuous_mode: true
-          mac_changes: True
-          forged_transmits: True          
       delegate_to: localhost
 
     - name: Waiting 10 seconds for completing switch
