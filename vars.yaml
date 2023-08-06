@@ -28,9 +28,7 @@ datastore_name: "RECA3-05"
 dc_template_name: "WinSvr2022-05"
 dc_snapshot_src_name: "RECA#3"
 
-esxi_template_name: "Temp-ESXi-05"
-
-sa_esxi_template_name: "Temp-SA-ESXi-05"
+sa_esxi_template_name: "sa-esxi-01.vclass.local-05"
 
 vcsa_template_name: "Temp-VCSA-ESXi-05"
 vcsa_snapshot_src_name: "Installed"
