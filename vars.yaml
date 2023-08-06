@@ -6,9 +6,9 @@ vcenter_hostname: "172.16.1.10"
 vcenter_username: "S00@vclass.reca3"
 vcenter_password: "VMware1!"
 
-datacenter_name: "RECA#3"
+datacenter_name: "RECA3"
 
-folder_prefix: "RECA#3/vm/3.Students/"
+folder_prefix: "RECA3/vm/3.Students/"
 
 # S01, S06, S11, S16, S21 --> esxi_host : esxi-01.vclass.reca3
 # S02, S07, S12, S17, S22 --> esxi_host : esxi-02.vclass.reca3
