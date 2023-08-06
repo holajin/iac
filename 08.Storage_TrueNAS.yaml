@@ -1,4 +1,4 @@
----
+A---
 - hosts: localhost
   vars_files: ./vars.yaml
 
@@ -58,6 +58,6 @@
           unit_number: 0
           state: present
           type: iso
-          iso_path: '[R3-ESXi-05]\ISO\TrueNAS-13.0-U4.iso'
+          iso_path: '[RECA3-05]\ISOs\TrueNAS-13.0-U4.iso'
       delegate_to: localhost
       register: deploy_vm
