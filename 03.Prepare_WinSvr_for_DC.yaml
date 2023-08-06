@@ -15,7 +15,7 @@
       name: "{{ student_ID + '-DC' }}"
       state: "poweredon"
       datacenter: '{{ datacenter_name }}'
-      folder: "{{ 'RECA#3/3.Students/' + student_ID }}"
+      folder: "{{ '3.Students/' + student_ID }}"
       esxi_hostname: '{{ esxi_hostname }}'
       datastore: "{{ datastore_name }}"
       template: "{{ dc_template_name }}"
