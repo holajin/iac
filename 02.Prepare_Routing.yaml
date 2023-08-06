@@ -24,18 +24,6 @@
           ovf: /mnt/c/Material/temp-vyos-1.4.ova    
       delegate_to: localhost
 
-
-    - name: Perform vMotion of virtual machine
-      community.vmware.vmware_vmotion:
-          hostname: '{{ vcenter_hostname }}'
-          username: '{{ vcenter_username }}'
-          password: '{{ vcenter_password }}'
-          validate_certs: 'false'
-          vm_name: "{{ student_ID + '-Router' }}"
-          destination_host: '{{ esxi_hostname }}'
-      delegate_to: localhost
-
-
     - name: Set the state of a virtual machine to poweron
       community.vmware.vmware_guest_powerstate:
           hostname: "{{ vcenter_hostname }}"
@@ -47,12 +35,10 @@
           state: powered-on
       delegate_to: localhost
 
-
     - name: Waiting 60 seconds for completing bootup
       wait_for:
         timeout: 60
       delegate_to: localhost
-
 
     - name: VyOS Router Configuration
       community.vmware.vmware_vm_shell:
