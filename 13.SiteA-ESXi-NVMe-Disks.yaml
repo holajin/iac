@@ -44,17 +44,17 @@
       delegate_to: localhost
       register: deploy_vm
 
-  - name: Reboot ESXi VM
-    community.vmware.vmware_guest_powerstate:
-      hostname: "{{ vcenter_hostname }}"
-      username: "{{ vcenter_username }}"
-      password: "{{ vcenter_password }}"
-      validate_certs: 'false'        
-      folder: "{{ folder_prefix + student_ID }}"
-      name: "{{ item }}"
-      state: reboot-guest
-    loop:
-      - "{{student_ID+'-SA-ESXi-01'}}"
-      - "{{student_ID+'-SA-ESXi-02'}}"
-      - "{{student_ID+'-SA-ESXi-03'}}"
-    delegate_to: localhost
+    - name: Reboot ESXi VM
+      community.vmware.vmware_guest_powerstate:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: 'false'        
+        folder: "{{ folder_prefix + student_ID }}"
+        name: "{{ item }}"
+        state: reboot-guest
+      loop:
+        - "{{student_ID+'-SA-ESXi-01'}}"
+        - "{{student_ID+'-SA-ESXi-02'}}"
+        - "{{student_ID+'-SA-ESXi-03'}}"
+      delegate_to: localhost
