@@ -57,9 +57,9 @@
         type: thin
         datastore: '{{ datastore_name }}'
     with_items:
-    - {vmname: "{{ student_ID + '-SA-ESXi-01' }}" }
-    - {vmname: "{{ student_ID + '-SA-ESXi-02' }}" }
-    - {vmname: "{{ student_ID + '-SA-ESXi-03' }}" }      
+    - {vmname: "{{ student_ID + '-SB-ESXi-01' }}" }
+    - {vmname: "{{ student_ID + '-SB-ESXi-02' }}" }
+    - {vmname: "{{ student_ID + '-SB-ESXi-03' }}" }      
     delegate_to: localhost
     register: deploy_vm
 
