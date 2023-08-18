@@ -1,0 +1,242 @@
+---
+- hosts: localhost
+  vars:
+    ansible_python_interpreter: /bin/python3
+    gather_facts: no
+    project_id: "P00"                        ## <-- 개인별 프로젝트 ID값 사용 
+    vcenter_hostname: "172.16.1.10"
+    vcenter_username: "s00@vclass.reca3"     ## <-- 개인별 vSphere 계정 사용 
+    vcenter_password: "VMware1!"
+    datacenter_name: "RECA3"
+    esxi_hostname: "esxi-05.vclass.reca3"    ## <-- 개인별 실습 물리서버 사용 
+    esxi_username: "root"
+    esxi_password: "VMware1!"
+    public_net:  "VM-172.16.1.x"
+    private_net: "{{ project_id + '-Openshift' }}"
+    parent_folder: "4.Projects"
+    folder_name: "{{ '/RECA3/vm/4.Projects/' + project_id }}"
+    datastore_name: "RECA3-05"              ## <-- 개인별 실습 서버의 저장소
+    iso_folder: '[RECA3-05]\ISOs\'          ## <-- 개인별 실습 서버의 ISO 폴더 경로
+
+  tasks: 
+  - name: 01. Create a Project folder
+    community.vmware.vcenter_folder:
+      hostname: '{{ vcenter_hostname }}'
+      username: '{{ vcenter_username }}'
+      password: '{{ vcenter_password }}'
+      validate_certs: false
+      datacenter_name: '{{ datacenter_name }}'
+      folder_name: '{{ project_id }}'
+#      parent_folder: "4.Projects"
+      parent_folder: '{{ parent_folder }}'
+      state: present
+    register: sub_folder_creation_result
+    delegate_to: localhost
+
+  - name: 02. Create Project Standard vSwitch
+    community.vmware.vmware_vswitch:
+      hostname: '{{ esxi_hostname }}'
+      username: '{{ esxi_username }}'
+      password: '{{ esxi_password }}'
+      validate_certs: false
+      switch: '{{ project_id }}'
+    delegate_to: localhost
+
+  - name: waiting vswitch creating
+    wait_for:
+      timeout: 10
+    delegate_to: localhost
+
+
+  - name: 03. Adding Private Openshift Portgroup
+    community.vmware.vmware_portgroup:
+      validate_certs: false
+      hostname: "{{ esxi_hostname }}"
+      username: "{{ esxi_username }}"
+      password: "{{ esxi_password }}"
+      hosts: "{{ esxi_hostname }}"  # ESXi 서버에 직접 접속해서 처리할 경우 명시가 필요함.
+      switch: "{{ project_id }}"
+      portgroup: "{{ private_net }}"
+    delegate_to: localhost
+
+  - name: waiting vswitch creating portgroup
+    wait_for:
+      timeout: 5
+    delegate_to: localhost
+
+  - name: 04. Deploy VyOS OVA Template
+    community.vmware.vmware_deploy_ovf:
+      hostname: '{{ vcenter_hostname }}'
+      username: '{{ vcenter_username }}'
+      password: '{{ vcenter_password }}'
+      validate_certs: 'false'
+      datacenter: '{{ datacenter_name }}'
+      folder: "{{ folder_name }}"
+      esxi_hostname: '{{ esxi_hostname }}'
+      datastore: '{{ datastore_name }}'
+      name: "{{ project_id + '-Router' }}"
+      networks: { 'Lab-Outside': "{{ public_net }}", 'Lab-Inside': "{{ private_net }}" }
+      ovf: /mnt/c/Material/temp-vyos-1.4.ova    
+    delegate_to: localhost
+
+  - name: waiting Router Booting
+    wait_for:
+      timeout: 60
+    delegate_to: localhost
+
+  - name: 05. VyOS Router Configuration
+    community.vmware.vmware_vm_shell:
+      hostname: '{{ vcenter_hostname }}'
+      username: '{{ vcenter_username }}'
+      password: '{{ vcenter_password }}'
+      validate_certs: 'false'
+      datacenter: '{{ datacenter_name }}'
+      folder: '{{ folder_name }}'
+      vm_id: "{{ project_id + '-Router' }}"
+      vm_id_type: vm_name
+      vm_username: 'vyos'
+      vm_password: 'vyos'
+      vm_shell: /bin/vbash
+      vm_shell_cwd: "/tmp"
+      vm_shell_args: |-
+        -c "source /opt/vyatta/etc/functions/script-template
+        configure
+
+        set system login user admin full-name Admin_User
+        set system login user admin authentication plaintext-password VMware1!
+        set service ssh port 22
+          
+        set system ipv6 disable
+          
+        set interfaces ethernet eth0 address dhcp
+        set interfaces ethernet eth0 description Outside
+        set interfaces ethernet eth0 ipv6 address no-default-link-local
+        set protocols static route 0.0.0.0/0 next-hop 172.16.1.1
+
+        set interfaces ethernet eth1 description 'Openshift Network'
+        set interfaces ethernet eth1 address 10.10.10.1/24
+        set interfaces ethernet eth0 ipv6 address no-default-link-local
+
+        set system name-server 172.16.1.2
+        set service ntp server kr.pool.ntp.org
+                      
+        set nat source rule 10 outbound-interface eth0
+        set nat source rule 10 source address 10.10.10.0/24
+        set nat source rule 10 translation address masquerade
+
+        set service dhcp-server shared-network-name Openshift subnet 10.10.10.0/24 default-router '10.10.10.1'
+        set service dhcp-server shared-network-name Openshift subnet 10.10.10.0/24 name-server '10.10.10.2'
+        set service dhcp-server shared-network-name Openshift subnet 10.10.10.0/24 domain-name 'vclass.local'
+        set service dhcp-server shared-network-name Openshift subnet 10.10.10.0/24 range 0 start '10.10.10.100'
+        set service dhcp-server shared-network-name Openshift subnet 10.10.10.0/24 range 0 stop '10.10.10.200'
+           
+        commit
+        save"
+      wait_for_process: True
+      timeout: 180
+    delegate_to: localhost
+    register: shell_command_with_wait_timeout
+
+  - name: 06. Create a Project VMs (aka Barametal Machines) 
+    community.vmware.vmware_guest:
+      hostname: "{{ vcenter_hostname }}"
+      username: "{{ vcenter_username }}"
+      password: "{{ vcenter_password }}"
+      validate_certs: 'false'
+      datacenter: '{{datacenter_name}}'
+      folder: '{{ folder_name }}'
+
+      name: '{{ project_id + item.vmname }}'
+      state: poweredoff
+      guest_id: '{{ item.guest_id }}'
+      esxi_hostname: "{{ esxi_hostname }}"
+      hardware:
+        num_cpus: '{{ item.cpus }}'
+        memory_mb: '{{ item.memory }}'
+        scsi: paravirtual
+      disk:
+      - size_gb: '{{ item.disk_gb }}'
+        type: thin
+        datastore: '{{ datastore_name }}'
+      networks:
+      - name: '{{ private_net }}'
+        device_type: vmxnet3
+      cdrom:
+      - controller_number: 0
+        unit_number: 0
+        state: present
+        type: iso
+        iso_path: '{{ iso_folder + item.file }}'
+    loop:
+    - { vmname: -Bastion, guest_id: rhel8_64Guest, cpus: 4, memory: 16384, disk_gb: 120, file: rhel-8.6-x86_64-dvd.iso }
+    - { vmname: -Bootstrap, guest_id: rhel8_64Guest, cpus: 4, memory: 16384, disk_gb: 120, file: rhel-8.6-x86_64-dvd.iso }
+    - { vmname: -Master-01, guest_id: rhel8_64Guest, cpus: 4, memory: 16384, disk_gb: 120, file: rhel-8.6-x86_64-dvd.iso }
+    - { vmname: -Master-02, guest_id: rhel8_64Guest, cpus: 4, memory: 16384, disk_gb: 120, file: rhel-8.6-x86_64-dvd.iso }
+    - { vmname: -Master-03, guest_id: rhel8_64Guest, cpus: 4, memory: 16384, disk_gb: 120, file: rhel-8.6-x86_64-dvd.iso }
+    - { vmname: -Worker-01, guest_id: rhel8_64Guest, cpus: 2, memory: 8192, disk_gb: 120, file: rhcos-4.12.17-x86_64-live.x86_64.iso }
+    - { vmname: -Worker-02, guest_id: rhel8_64Guest, cpus: 2, memory: 8192, disk_gb: 120, file: rhcos-4.12.17-x86_64-live.x86_64.iso }
+    - { vmname: -Worker-03, guest_id: rhel8_64Guest, cpus: 2, memory: 8192, disk_gb: 120, file: rhcos-4.12.17-x86_64-live.x86_64.iso }
+    - { vmname: -Storage, guest_id: freebsd64Guest, cpus: 4, memory: 16384,  disk_gb: 32, iso: TrueNAS-13.0-U4.iso }
+    delegate_to: localhost
+    register: deploy_vm
+
+  - name: 07. Modify Bastion VM Network
+    community.vmware.vmware_guest_network:
+      hostname: "{{ vcenter_hostname }}"
+      hostname: "{{ vcenter_hostname }}"
+      username: "{{ vcenter_username }}"
+      password: "{{ vcenter_password }}"
+      validate_certs: 'false'
+      name: "{{ project_id + '-Bastion'}}"
+      network_name: '{{ item.network }}'
+      label: '{{ item.label }}'
+      state: present
+    loop:
+    - { network: "{{ public_net }}", label: "Network adapter 1" }
+    - { network: "{{ private_net }}", label: "Network adapter 2" }
+    delegate_to: localhost
+
+  - name: 08. Add Disks to Bastion 
+    community.vmware.vmware_guest_disk:
+      hostname: "{{ vcenter_hostname }}"
+      username: "{{ vcenter_username }}"
+      password: "{{ vcenter_password }}"
+      validate_certs: 'false'
+      datacenter: '{{datacenter_name}}'        
+      name: "{{ project_id + '-Bastion'}}"
+      disk:
+      - size_gb: 200
+        type: thin
+        datastore: '{{ datastore_name }}'
+        state: present
+        scsi_controller: 0
+        unit_number: 1
+        scsi_type: 'paravirtual'
+        disk_mode: 'persistent'
+    delegate_to: localhost
+    register: disk_facts
+
+  - name: 09. Add Disks to Storage (TruneNas)
+    community.vmware.vmware_guest_disk:
+      hostname: "{{ vcenter_hostname }}"
+      username: "{{ vcenter_username }}"
+      password: "{{ vcenter_password }}"
+      validate_certs: 'false'
+      datacenter: '{{datacenter_name}}'        
+      name: "{{ project_id + '-Storage'}}"
+      disk:
+      - size_gb: 200
+        type: thin
+        datastore: '{{ datastore_name }}'
+        state: present
+        scsi_controller: 0
+        unit_number: '{{ item }}'
+        scsi_type: 'paravirtual'
+        disk_mode: 'persistent'
+    loop:
+      - '1'
+      - '2'
+      - '3'
+      - '4'
+    delegate_to: localhost
+    register: disk_facts    
