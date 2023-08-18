@@ -1,0 +1,36 @@
+---
+- hosts: localhost
+  vars:
+    ansible_python_interpreter: /bin/python3
+    gather_facts: no
+    vcenter_hostname: "172.16.1.10"
+    vcenter_username: "s00@vclass.reca3"
+    vcenter_password: "VMware1!"
+    datacenter_name: "RECA3"
+    esxi_hostname: "172.16.1.15"
+    project_id: "P00"
+    public_net:  "VM-172.16.1.x"
+    private_net: "{{ project_id + '-Openshift' }}"
+    folder_name: "{{ '/RECA3/vm/4.Projects/' + project_id }}"
+    datastore_name: "RECA3-05"
+
+  tasks: 
+  - name: 04. Deploy VyOS OVA Template
+    community.vmware.vmware_deploy_ovf:
+      hostname: '{{ vcenter_hostname }}'
+      username: '{{ vcenter_username }}'
+      password: '{{ vcenter_password }}'
+      validate_certs: 'false'
+      datacenter: '{{ datacenter_name }}'
+      folder: "{{ folder_name }}"
+      esxi_hostname: '{{ esxi_hostname }}'
+      datastore: '{{ datastore_name }}'
+      name: "{{ project_id + '-Router' }}"
+      networks: { 'Lab-Outside': "{{ public_net }}", 'Lab-Inside': "{{ private_net }}" }
+      ovf: /mnt/c/Material/temp-vyos-1.4.ova    
+    delegate_to: localhost
+
+- name: waiting Router Booting
+  wait_for:
+    timeout: 60
+  delegate_to: localhost
