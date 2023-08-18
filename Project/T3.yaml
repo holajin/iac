@@ -1,0 +1,27 @@
+---
+- hosts: localhost
+  vars:
+    ansible_python_interpreter: /bin/python3
+    gather_facts: no
+    esxi_hostname: "172.16.1.15"
+    esxi_username: "root"
+    esxi_password: "VMware1!"
+    project_id: "P00"
+    private_net: "{{ project_id + '-Openshift' }}"
+
+tasks: 
+- name: 03. Adding Private Openshift Portgroup
+  community.vmware.vmware_portgroup:
+    validate_certs: false
+    hostname: "{{ esxi_hostname }}"
+    username: "{{ esxi_username }}"
+    password: "{{ esxi_password }}"
+    hosts: "{{ esxi_hostname }}"  # ESXi 서버에 직접 접속해서 처리할 경우 명시가 필요함.
+    switch: "{{ project_id }}"
+    portgroup: "{{ private_net }}"
+  delegate_to: localhost
+
+- name: waiting vswitch creating portgroup
+  wait_for:
+    timeout: 5
+  delegate_to: localhost
