@@ -1,0 +1,62 @@
+---
+- hosts: localhost
+  vars:
+    ansible_python_interpreter: /bin/python3
+    gather_facts: no
+    project_id: "P00"                        ## <-- 개인별 프로젝트 ID값 사용 
+    vcenter_hostname: "172.16.1.10"
+    vcenter_username: "s00@vclass.reca3"     ## <-- 개인별 vSphere 계정 사용 
+    vcenter_password: "VMware1!"
+    datacenter_name: "RECA3"
+    esxi_hostname: "esxi-05.vclass.reca3"    ## <-- 개인별 실습 물리서버 사용 
+    esxi_username: "root"
+    esxi_password: "VMware1!"
+    public_net:  "VM-172.16.1.x"
+    private_net: "{{ project_id + '-Openshift' }}"
+    folder_name: "{{ '/RECA3/vm/4.Projects/' + project_id }}"
+    datastore_name: "RECA3-05"              ## <-- 개인별 실습 서버의 저장소
+    iso_folder: '[RECA3-05]\ISOs\'          ## <-- 개인별 실습 서버의 ISO 폴더 경로
+
+  tasks: 
+    - name: 06. Create a Project VMs (aka Barametal Machines) 
+      community.vmware.vmware_guest:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: 'false'
+        datacenter: '{{datacenter_name}}'
+        folder: '{{ folder_name }}'
+
+        name: '{{ project_id + item.vmname }}'
+        state: poweredoff
+        guest_id: '{{ item.guest_id }}'
+        esxi_hostname: "{{ esxi_hostname }}"
+        hardware:
+          num_cpus: '{{ item.cpus }}'
+          memory_mb: '{{ item.memory }}'
+          scsi: paravirtual
+        disk:
+        - size_gb: '{{ item.disk_gb }}'
+          type: thin
+          datastore: '{{ datastore_name }}'
+        networks:
+        - name: '{{ private_net }}'
+          device_type: vmxnet3
+        cdrom:
+        - controller_number: 0
+          unit_number: 0
+          state: present
+          type: iso
+          iso_path: '{{ iso_folder + item.file }}'
+      loop:
+      - { vmname: -Bastion, guest_id: rhel8_64Guest, cpus: 4, memory: 16384, disk_gb: 120, file: rhel-8.6-x86_64-dvd.iso }
+      - { vmname: -Bootstrap, guest_id: rhel8_64Guest, cpus: 4, memory: 16384, disk_gb: 120, file: rhel-8.6-x86_64-dvd.iso }
+      - { vmname: -Master-01, guest_id: rhel8_64Guest, cpus: 4, memory: 16384, disk_gb: 120, file: rhel-8.6-x86_64-dvd.iso }
+      - { vmname: -Master-02, guest_id: rhel8_64Guest, cpus: 4, memory: 16384, disk_gb: 120, file: rhel-8.6-x86_64-dvd.iso }
+      - { vmname: -Master-03, guest_id: rhel8_64Guest, cpus: 4, memory: 16384, disk_gb: 120, file: rhel-8.6-x86_64-dvd.iso }
+      - { vmname: -Worker-01, guest_id: rhel8_64Guest, cpus: 2, memory: 8192, disk_gb: 120, file: rhcos-4.12.17-x86_64-live.x86_64.iso }
+      - { vmname: -Worker-02, guest_id: rhel8_64Guest, cpus: 2, memory: 8192, disk_gb: 120, file: rhcos-4.12.17-x86_64-live.x86_64.iso }
+      - { vmname: -Worker-03, guest_id: rhel8_64Guest, cpus: 2, memory: 8192, disk_gb: 120, file: rhcos-4.12.17-x86_64-live.x86_64.iso }
+      - { vmname: -Storage, guest_id: freebsd64Guest, cpus: 4, memory: 16384,  disk_gb: 32, iso: TrueNAS-13.0-U4.iso }
+      delegate_to: localhost
+      register: deploy_vm
