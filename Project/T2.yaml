@@ -1,0 +1,24 @@
+---
+- hosts: localhost
+  vars:
+    ansible_python_interpreter: /bin/python3
+    gather_facts: no
+    esxi_hostname: "172.16.1.15"
+    esxi_username: "root"
+    esxi_password: "VMware1!"
+    project_id: "P00"
+
+  tasks: 
+  - name: 02. Create Project Standard vSwitch
+    community.vmware.vmware_vswitch:
+      hostname: '{{ esxi_hostname }}'
+      username: '{{ esxi_username }}'
+      password: '{{ esxi_password }}'
+      validate_certs: false
+      switch: '{{ project_id }}'
+    delegate_to: localhost
+
+  - name: waiting vswitch creating
+    wait_for:
+      timeout: 10
+    delegate_to: localhost
