@@ -7,7 +7,7 @@
     vcenter_username: "s00@vclass.reca3"
     vcenter_password: "VMware1!"
     datacenter_name: "RECA3"
-    esxi_hostname: "172.16.1.15"
+    esxi_hostname: "esxi-05.vclass.reca3"
     project_id: "P00"
     public_net:  "VM-172.16.1.x"
     private_net: "{{ project_id + '-Openshift' }}"
